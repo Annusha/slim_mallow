@@ -8,7 +8,8 @@ __date__ = 'September 2018'
 
 import numpy as np
 
-from utils.arg_pars import logger, opt
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 
 
 class AuxiliaryGMM:

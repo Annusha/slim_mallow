@@ -8,7 +8,7 @@ __date__ = 'November 2018'
 
 import numpy as np
 
-from utils.arg_pars import logger, opt
+from utils.logging_setup import logger
 
 
 class F1Score:

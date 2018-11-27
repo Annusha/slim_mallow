@@ -9,7 +9,8 @@ __date__ = 'August 2018'
 import numpy as np
 import os
 
-from utils.arg_pars import opt, logger
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 
 n1 = '00'
 n2_0 = '0%d'

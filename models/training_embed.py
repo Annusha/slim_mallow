@@ -12,16 +12,16 @@ import numpy as np
 from os.path import join
 import time
 
-from utils.arg_pars import opt, logger
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 from models.dataset_torch import load_data, load_mnist
 from utils.utils import AverageMeter, join_data, adjust_lr
 from utils.visualization import Visual
 from utils.utils import dir_check
-from models.lin_embedding import Embedding, RankLoss
+from models.rank import Embedding, RankLoss
 
 
-def training(train_loader, epochs, n_subact=0, mnist=False,
-             save=True, **kwargs):
+def training(train_loader, epochs, n_subact=0, save=True, **kwargs):
     """Training pipeline for embedding.
 
     Args:
@@ -36,23 +36,13 @@ def training(train_loader, epochs, n_subact=0, mnist=False,
     logger.debug('create model')
     torch.manual_seed(opt.seed)
     try:
-        vae = kwargs['vae']
-    except KeyError:
-        vae = False
-    try:
         model = kwargs['model']
         loss = kwargs['loss']
         optimizer = kwargs['optimizer']
     except KeyError:
-        if mnist:
-            model = Embedding(embed_dim=opt.embed_dim,
-                              feature_dim=28 * 28,
-                              n_subact=n_subact).cuda()
-            mask_onehot = np.eye(10)
-        else:
-            model = Embedding(embed_dim=opt.embed_dim,
-                              feature_dim=opt.feature_dim,
-                              n_subact=n_subact).cuda()
+        model = Embedding(embed_dim=opt.embed_dim,
+                          feature_dim=opt.feature_dim,
+                          n_subact=n_subact).cuda()
 
         loss = RankLoss(margin=0.2).cuda()
         optimizer = torch.optim.SGD(model.parameters(),
@@ -87,17 +77,8 @@ def training(train_loader, epochs, n_subact=0, mnist=False,
             data_time.update(time.time() - end)
             input = input.float().cuda(non_blocking=True)
             k = k.float().cuda()
-            if mnist:
-                input = input.view((-1, 28 * 28))
-                k = [mask_onehot[i] for i in k]
-                k = torch.Tensor(k).cuda()
-
-            if vae:
-                recon_batch, mu, logvar = model(input)
-                loss_values = loss(recon_batch, input, mu, logvar)
-            else:
-                output = model(input)
-                loss_values = loss(output, k)
+            output = model(input)
+            loss_values = loss(output, k)
             losses.update(loss_values.item(), input.size(0))
 
             optimizer.zero_grad()
@@ -115,24 +96,12 @@ def training(train_loader, epochs, n_subact=0, mnist=False,
                     epoch, i, len(train_loader), batch_time=batch_time,
                     data_time=data_time, loss=losses))
         logger.debug('loss: %f' % losses.avg)
-        # if loss_previous > losses.avg:
-        #     loss_previous = losses.avg
-        # else:
-        #     logger.debug('Break training')
-        #     break
         losses.reset()
-
-        # best_acc = accuracy(train_loader, model, epoch, best_acc, mnist=mnist)
-        # visualization2d(train_loader, model, epoch, vis, mnist=mnist)
 
     if save:
         save_dict = {'epoch': epoch,
                      'state_dict': model.state_dict(),
                      'optimizer': optimizer.state_dict()}
-        # data_name = opt.data.split('/')[-1]
-        # learning_type = ['gt', 'pr'][0 if opt.gt_training or not opt.pose_segm else 1]
-        # zeros = ['with0', 'ohne0'][0 if opt.zeros else 1]
-        # pose_segm = ['_!pose', ''][opt.pose_segm]
         dir_check(join(opt.dataset_root, 'models'))
         dir_check(join(opt.dataset_root, 'models', kwargs['name']))
         torch.save(save_dict, join(opt.dataset_root, 'models', kwargs['name'],
@@ -140,7 +109,7 @@ def training(train_loader, epochs, n_subact=0, mnist=False,
     return model
 
 
-def visualization2d(train_loader, model, epoch, vis, mnist, resume=False):
+def visualization2d(train_loader, model, epoch, vis, resume=False):
     """To get understanding how embedding separate space using whatever loss"""
     if resume:
         logger.debug('Load the model for epoch %d' % epoch)
@@ -159,12 +128,8 @@ def visualization2d(train_loader, model, epoch, vis, mnist, resume=False):
         vis.size = 5
         for i, (input, k, _) in enumerate(train_loader):
             input = input.float()
-            if mnist:
-                input = input.view((-1, 28 * 28))
-                vis.labels = k
-            else:
-                k = k.numpy()
-                vis.labels = np.argmax(k, axis=1)
+            k = k.numpy()
+            vis.labels = np.argmax(k, axis=1)
 
             output = model.embedded(input).cpu().numpy()
 
@@ -177,7 +142,7 @@ def visualization2d(train_loader, model, epoch, vis, mnist, resume=False):
     vis.reset()
 
 
-def accuracy(train_loader, model, epoch, best_acc, mnist, resume=False, idx2name=None):
+def accuracy(train_loader, model, epoch, best_acc, resume=False, idx2name=None):
     """Calculate accuracy of trained embedding either just trained or with
     pretrained model"""
     if resume:
@@ -198,10 +163,7 @@ def accuracy(train_loader, model, epoch, best_acc, mnist, resume=False, idx2name
         for i, (input, k, name) in enumerate(train_loader):
             input = input.float()
             k = k.numpy()
-            if mnist:
-                input = input.view((-1, 28 * 28))
-            else:
-                k = np.argmax(k, axis=1)
+            k = np.argmax(k, axis=1)
 
             output = model.embedded(input).cpu().numpy()
             if opt.save:
@@ -212,7 +174,7 @@ def accuracy(train_loader, model, epoch, best_acc, mnist, resume=False, idx2name
                         video_save_feat = join_data(video_save_feat, f, np.vstack)
                     else:
                         np.savetxt(join(opt.data, 'embed', '%d_%d_%s_' %
-                                        (opt.embed_dim, opt.n_d, str(opt.lr))
+                                        (opt.embed_dim, opt.data_type, str(opt.lr))
                                         + idx2name[name_cur]),
                                    video_save_feat)
                         video_save_feat = join_data(None, f, np.vstack)
@@ -220,7 +182,6 @@ def accuracy(train_loader, model, epoch, best_acc, mnist, resume=False, idx2name
             dists = -2 * np.dot(output, anchors.T) + np.sum(anchors ** 2, axis=1) \
                     + np.sum(output ** 2, axis=1)[:, np.newaxis]
 
-            temp = np.argmin(dists, axis=1)
             dist = np.sum(np.argmin(dists, axis=1) == k, dtype=float) / input.size(0)
             acc.update(dist, input.size(0))
             if i % 100 == 0 and i:
@@ -229,10 +190,10 @@ def accuracy(train_loader, model, epoch, best_acc, mnist, resume=False, idx2name
                     i, len(train_loader), acc=acc))
         if opt.save_feat:
             np.savetxt(join(opt.data, 'embed',
-                            '%d_%d_%s_' % (opt.embed_dim, opt.n_d, str(opt.lr))
+                            '%d_%d_%s_' % (opt.embed_dim, opt.data_type, str(opt.lr))
                             + idx2name[name_cur]), video_save_feat)
             np.savetxt(join(opt.data, 'embed', 'anchors_%s_%d_%d_%s'
-                            % (opt.subaction, opt.embed_dim, opt.n_d, str(opt.lr))),
+                            % (opt.subaction, opt.embed_dim, opt.data_type, str(opt.lr))),
                        anchors)
         if best_acc < acc.avg:
             best_acc = acc.avg
@@ -241,11 +202,8 @@ def accuracy(train_loader, model, epoch, best_acc, mnist, resume=False, idx2name
     return best_acc
 
 
-def load_model(epoch=1, name=None):
-    # data_name = opt.data.split('/')[-1]
-    # learning_type = ['gt', 'pr'][0 if opt.gt_training or not opt.pose_segm else 1]
-    # zeros = ['with0', 'ohne0'][0 if opt.zeros else 1]
-    # pose_segm = ['_!pose', ''][opt.pose_segm]
+def load_model(name=None):
+
     if opt.resume_str:
         subaction = opt.subaction.split('_')[0]
         resume_str = opt.resume_str % subaction
@@ -259,27 +217,23 @@ def load_model(epoch=1, name=None):
     return checkpoint
 
 
-def resume(train_loader, epoch, n_subact, feature_dim, mnist, idx2name):
+def resume(train_loader, epoch, n_subact, feature_dim, idx2name):
     """Resume to calculate accuracy with pretrained models"""
     model = Embedding(embed_dim=opt.embed_dim,
                       feature_dim=feature_dim,
                       n_subact=n_subact)
     vis = Visual(mode='tsne', full=True)
 
-    accuracy(train_loader, model, epoch, best_acc=0, mnist=mnist, resume=True,
+    accuracy(train_loader, model, epoch, best_acc=0, resume=True,
              idx2name=idx2name)
     # visualization2d(train_loader, model, epoch, vis, mnist=mnist, resume=True)
 
 
-def pipeline(mnist):
+def pipeline():
     idx2name = [0]
-    if mnist:
-        dataloader, n_subact = load_mnist(opt.resume)
-        feature_dim = 28 * 28
-    else:
-        dataloader, n_subact = load_data(opt.data, opt.end, subaction=opt.subaction,
-                                         names=idx2name)
-        feature_dim = opt.feature_dim
+    dataloader, n_subact = load_data(opt.data, opt.end, subaction=opt.subaction,
+                                     names=idx2name)
+    feature_dim = opt.feature_dim
 
     for lr in [1e-5, 1e-6, 1e-7]:
         opt.lr = lr
@@ -287,11 +241,10 @@ def pipeline(mnist):
             opt.resume = i
 
             if opt.resume:
-                resume(dataloader, epoch=opt.resume, n_subact=n_subact, feature_dim=feature_dim,
-                       mnist=mnist, idx2name=idx2name[0])
+                resume(dataloader, epoch=opt.resume, n_subact=n_subact, feature_dim=feature_dim, idx2name=idx2name[0])
             else:
-                training(dataloader, opt.epochs, n_subact, mnist)
+                training(dataloader, opt.epochs, n_subact)
 
 
 if __name__=='__main__':
-    pipeline(mnist=False)
+    pipeline()

@@ -14,7 +14,6 @@ from utils.utils import join_data
 from os.path import join
 import matplotlib.style
 import matplotlib as mpl
-from mpl_toolkits.axes_grid1.axes_divider import make_axes_area_auto_adjustable
 
 from utils.arg_pars import opt
 from utils.utils import dir_check, timing
@@ -147,6 +146,5 @@ def plot_segm(path, segmentation, colors, name=''):
         segm = list(map(lambda x: label2gt[x], segm))
         for start, end, label in bounds(segm):
             ax.axvspan(start / v_len, end / v_len, facecolor=colors[label], alpha=1.0)
-
 
     fig.savefig(path, transparent=False)

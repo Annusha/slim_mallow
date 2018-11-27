@@ -11,17 +11,12 @@ import math as m
 import os
 from os.path import join
 import time
-import queue
-import multiprocessing as mp
-from itertools import permutations
 
-from utils.arg_pars import opt, logger
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 from utils.utils import timing, dir_check
 from viterbi_utils.viterbi import Viterbi
 from viterbi_utils.grammar import Grammar
-from viterbi_utils.src.utils.grammar import SingleTranscriptGrammar
-from viterbi_utils.src.utils.length_model import PoissonModel
-from viterbi_utils.src.utils.viterbi import Viterbi as alexViterbi
 
 
 class Video(object):
@@ -42,19 +37,15 @@ class Video(object):
         self.path = path
         self._K = K
         self.name = name
-        # do we need to delete features from memory after every usage
-        self._reset = reset
 
         self._likelihood_grid = None
         self._valid_likelihood = None
         self._theta_0 = 0.1
-        # self._subact_i_mask = np.ones((self._K, self._K)) - np.eye(self._K)
         self._subact_i_mask = np.eye(self._K)
         self.n_frames = 0
         self._features = None
         self.global_start = start
         self.global_range = None
-        # self.indexes_subactions = None
 
         self._gt = gt
         self._gt_unique = np.unique(self._gt)
@@ -62,16 +53,11 @@ class Video(object):
 
         self.features()
         self._check_gt()
-        if self._reset:
-            # just  number of frames was inited if reset param is true
-            self._features = None
 
         # counting of subactivities np.array
         self.a = np.zeros(self._K)
         # ordering, init with canonical ordering
         self._pi = list(range(self._K))
-        self.pi_supp = []
-        self._pi_queue = mp.Queue()
         self.inv_count_v = np.zeros(self._K - 1)
         # subactivity per frame
         self._z = []
@@ -85,11 +71,44 @@ class Video(object):
             self._init_fg_mask()
 
         self._subact_count_update()
-        self.pose = None
 
-        self.segmentation = {}
-        self.segmentation['gt'] = (self._gt, None)
-        # self.segmentation[-1] = self._z
+        self.segmentation = {'gt': (self._gt, None)}
+
+    def features(self):
+        """Load features given path if haven't do it before"""
+        if self._features is None:
+            self._features = np.loadtxt(self.path)
+            if opt.data_type == 2:
+                self._features = self._features[1:, 1:]
+            zeros = 0
+            # for i in range(10):
+            #     if np.sum(self._features[:1]) == 0:
+            #         self._features = self._features[1:]
+            #         zeros += 1
+            #     else:
+            #         break
+            self.n_frames = self._features.shape[0]
+            self._likelihood_grid = np.zeros((self.n_frames, self._K))
+            self._valid_likelihood = np.zeros((self.n_frames, self._K), dtype=bool)
+            self._gt = self._gt[zeros:]
+            self._gt_with_0 = self._gt_with_0[zeros:]
+        return self._features
+
+    def _check_gt(self):
+        try:
+            assert len(self._gt) == self.n_frames
+        except AssertionError:
+            print(self.path, '# of gt and # of frames does not match %d' % len(self._gt))
+            if len(self._gt) - self.n_frames > 50:
+                raise AssertionError
+            else:
+                min_n = min(len(self._gt), self.n_frames)
+                self._gt = self._gt[:min_n]
+                self._gt_with_0 = self._gt_with_0[:min_n]
+                self.n_frames = min_n
+                self._features = self._features[:min_n]
+                self._likelihood_grid = np.zeros((self.n_frames, self._K))
+                self._valid_likelihood = np.zeros((self.n_frames, self._K), dtype=bool)
 
     def _init_z_framewise(self):
         """Init subactivities uniformly among video frames"""
@@ -110,47 +129,18 @@ class Video(object):
         self.fg_mask[indexes] = False
         # todo: have to check if it works correctly
         # since it just after initialization
-        self._z[self.fg_mask == False] = -1\
+        self._z[self.fg_mask == False] = -1
+
+    def _subact_count_update(self):
+        c = Counter(self._z)
+        # logger.debug('%s: %s' % (self.name, str(c)))
+        self.a = []
+        for subaction in range(self._K):
+            self.a += [c[subaction]]
 
     def update_indexes(self, total):
         self.global_range = np.zeros(total, dtype=bool)
         self.global_range[self.global_start: self.global_start + self.n_frames] = True
-
-    def _check_gt(self):
-        try:
-            assert len(self._gt) == self.n_frames
-        except AssertionError:
-            print(self.path, '# of gt and # of frames does not match %d' % len(self._gt))
-            if len(self._gt) - self.n_frames > 50:
-                raise AssertionError
-            else:
-                min_n = min(len(self._gt), self.n_frames)
-                self._gt = self._gt[:min_n]
-                self._gt_with_0 = self._gt_with_0[:min_n]
-                self.n_frames = min_n
-                self._features = self._features[:min_n]
-                self._likelihood_grid = np.zeros((self.n_frames, self._K))
-                self._valid_likelihood = np.zeros((self.n_frames, self._K), dtype=bool)
-
-    def features(self):
-        """Load features given path if haven't do it before"""
-        if self._features is None:
-            self._features = np.loadtxt(self.path)
-            if opt.n_d == 2:
-                self._features = self._features[1:, 1:]
-            zeros = 0
-            for i in range(10):
-                if np.sum(self._features[:1]) == 0:
-                    self._features = self._features[1:]
-                    zeros += 1
-                else:
-                    break
-            self.n_frames = self._features.shape[0]
-            self._likelihood_grid = np.zeros((self.n_frames, self._K))
-            self._valid_likelihood = np.zeros((self.n_frames, self._K), dtype=bool)
-            self._gt = self._gt[zeros:]
-            self._gt_with_0 = self._gt_with_0[zeros:]
-        return self._features
 
     def reset(self):
         """If features from here won't be in use anymore"""
@@ -178,13 +168,6 @@ class Video(object):
             self._z_idx = z[:]
         assert len(self._z) == self.n_frames
         return np.asarray(self._z_idx)
-
-    def _subact_count_update(self):
-        c = Counter(self._z)
-        # logger.debug('%s: %s' % (self.name, str(c)))
-        self.a = []
-        for subaction in range(self._K):
-            self.a += [c[subaction]]
 
     def update_z(self, z):
         self._z = np.asarray(z, dtype=int)
@@ -241,7 +224,6 @@ class Video(object):
             var_z[val, :] = self._z
         return self._helper_likelihood_z(var_z, k_i=k, pi=pi)
 
-
     def _likelihood_vit(self, k, mallow_model):
         """Likelihoods for different variants of ordering for given position
         in inverse count vector computed with viterbi decoding
@@ -257,7 +239,6 @@ class Video(object):
             likelihoods.append(self.viterbi(pi=pi))
 
         return np.asarray(likelihoods)
-
 
     def _helper_likelihood_z(self, var_z, k_i=0, pi=None):
         """ Helper computation for a and v likelihoods together.
@@ -310,9 +291,8 @@ class Video(object):
 
     def load_likelihood(self):
         """Used for multiprocessing"""
-        self._likelihood_grid = np.loadtxt(os.path.join(opt.data,
-                                                        'likelihood',
-                                                        self.name))
+        path_join = os.path.join(opt.data, 'likelihood', self.name)
+        self._likelihood_grid = np.loadtxt(path_join)
 
     def get_likelihood(self):
         return self._likelihood_grid
@@ -334,10 +314,7 @@ class Video(object):
                 pass
             # one hot encoding for current subaction class
             # sum instead of product as in log space
-            time1 = time.time()
             likelihoods = self._likelihood_z_a(frame_idx)
-            time2 = time.time()
-            # print('sb sm %0.6f' % (time2 - time1))
             if np.sum(likelihoods == -np.inf) == likelihoods.size:
                 self._z[frame_idx] = -1  # bg frame
                 self.fg_mask[frame_idx] = False
@@ -349,61 +326,33 @@ class Video(object):
                     subact_counter_video = self.a - self._subact_i_mask[self._z[frame_idx]]
                 multinomial_probs = (np.log(subact_counter + subact_counter_video
                                             + self._theta_0))
-                # print('sb sm %0.6f' % (time2 - time1))
                 # in this context just sampling
                 # it isn't assignment subact to the frame, but for the entire video
                 self._z[frame_idx] = np.argmax(likelihoods + multinomial_probs)
             self._subact_count_update()
-        # logger.debug('background: %d' % int(self.fg_mask.size - np.sum(self.fg_mask)))
         return self.a, subact_counter
 
     def ordering_sampler(self, mallow_model):
         # logger.debug('Video: %s' % self.name)
         if opt.ordering:
-            self.pi_supp.append(list(self._pi))
             for k in range(self._K - 1):
                 possible_vals = np.array(range(self._K - k))
                 # sum instead of product as in log space
                 probs = mallow_model.single_term_prob(possible_vals, k)
                 likelihood = self._likelihood_z_v(k, mallow_model)
                 probs += likelihood
-                # logger.debug(str(likelihood))
                 self.inv_count_v[k] = np.argmax(probs)
 
             self._pi = mallow_model.ordering(self.inv_count_v)
-            if list(self._pi) not in self.pi_supp:
-                self.pi_supp.append(list(self._pi))
-        # logger.debug(str(self._pi))
-        # logger.debug('____________________________________')
         self.z()
         if opt.bg:
             self.fg_mask = np.sum(self._valid_likelihood, axis=1) > 0
-        # save current segmentation
 
+        # save current segmentation
         name = str(self.name) + '_' + opt.log_str + 'iter%d' % self.iter + '.txt'
         np.savetxt(join(opt.data, 'segmentation', name),
                    np.asarray(self._z), fmt='%d')
         return list(self._pi)
-
-        # if opt.vis:
-        #     self.segmentation[self.iter] = self._z[:]
-
-    @timing
-    def viterbi_ordering(self, mallow_model):
-        if opt.ordering:
-            for k in range(self._K - 1):
-                possible_vals = np.arange(self._K - k)
-                probs = mallow_model.single_term_prob(possible_vals, k)
-                likelihood = self._likelihood_vit(k, mallow_model)
-                probs += likelihood
-                self.inv_count_v[k] = np.argmax(probs)
-
-            self._pi = mallow_model.ordering(self.inv_count_v)
-            logger.debug(str(self._pi))
-
-        if opt.bg:
-            self.fg_mask = np.sum(self._valid_likelihood, axis=1) > 0
-
 
     def _viterbi_inner(self, pi, save=False):
         grammar = Grammar(pi)
@@ -430,75 +379,16 @@ class Video(object):
                     f.write('%d ' % z_elem)
         return z, score
 
-    def viterbi_top_perm(self):
-        if opt.ordering:
-            self.pi_supp = []
-            for idx, val in enumerate(self._pi[:-1]):
-                pi_new = np.array(self._pi).copy()
-                pi_new[idx] = self._pi[idx + 1]
-                pi_new[idx + 1] = self._pi[idx]
-                self.pi_supp.append(pi_new)
-                self._pi_queue.put(pi_new)
-
-    def _viterbi_queue(self):
-        while not self._pi_queue.empty():
-            try:
-                pi = self._pi_queue.get(timeout=3)
-                self._viterbi_inner(pi, save=True)
-            except queue.Empty:
-                pass
-
-    def _postprocessing_viterbi_mp(self):
-        scores = []
-        alignments = []
-        for pi in self.pi_supp:
-            name = '%s_%s' % (str(pi), self.name)
-            read_path = join(opt.data, 'likelihood', name)
-            with open(read_path, 'r') as f:
-                scores.append(float(f.readline()))
-                alignment = [int(i) for i in f.readline().split()]
-                alignments.append(alignment)
-
-        winner_idx = int(np.argmax(scores))
-        # winner_idx = int(np.argmin(scores))
-        self._z = np.asarray(alignments[winner_idx]).copy()
-        self._pi = self.pi_supp[winner_idx]
-        return_score = scores[winner_idx]
-        return return_score
-
-    def viterbi_mp(self, n_threads=3):
-        """Pseudo multiprocessing for decoding many grammars concurrently"""
-        procs = []
-        for i in range(n_threads):
-            p = mp.Process(target=self._viterbi_queue)
-            procs.append(p)
-            p.start()
-        for p in procs:
-            p.join()
-        return self._postprocessing_viterbi_mp()
-
     # @timing
-    def viterbi(self, pi=None):
-        if self.pi_supp:
-            alignments = []
-            scores = []
-            for pi in self.pi_supp:
-                alignment, score = self._viterbi_inner(pi)
-                alignments.append(alignment)
-                scores.append(score)
-            winner_idx = int(np.argmax(scores))
-            # winner_idx = int(np.argmin(scores))
-            self._z = np.asarray(alignments[winner_idx]).copy()
-            self._pi = self.pi_supp[winner_idx]
-            return_score = scores[winner_idx]
-        else:
-            if pi is None:
-                pi = self._pi
-            log_probs = self._likelihood_grid
-            if np.max(log_probs) > 0:
-                self._likelihood_grid = log_probs - (2 * np.max(log_probs))
-            alignment, return_score = self._viterbi_inner(pi, save=True)
-            self._z = np.asarray(alignment).copy()
+    def viterbi(self):
+        """Decode segmentation out of likelihood values and save output segmentation"""
+
+        pi = self._pi
+        log_probs = self._likelihood_grid
+        if np.max(log_probs) > 0:
+            self._likelihood_grid = log_probs - (2 * np.max(log_probs))
+        alignment, return_score = self._viterbi_inner(pi, save=True)
+        self._z = np.asarray(alignment).copy()
 
         self._subact_count_update()
 
@@ -509,29 +399,7 @@ class Video(object):
 
         return return_score
 
-    # @timing
-    def viterbi_alex(self, len_model):
-        grammar = SingleTranscriptGrammar(self._pi, self._K)
-
-        length_model = PoissonModel(len_model)
-
-        log_probs = self._likelihood_grid
-        if np.max(log_probs) > 0:
-            log_probs = log_probs - (2*np.max(log_probs))
-
-        viterbi_decoder = alexViterbi(grammar, length_model, frame_sampling=1, max_hypotheses=2000)
-
-        try:
-            score, labels, segments = viterbi_decoder.decode(log_probs)
-            self._z = labels
-            self._subact_count_update()
-        except queue.Empty:
-            pass
-
     def resume(self):
-        # learning_type = ['gt', 'pr'][0 if opt.gt_training else 1]
-        # name = opt.prefix + str(self.name) + '_iter_%d_%d_%s_x%d_%s_%d.txt' % \
-        #        (self.iter, opt.embed_dim, opt.gmms, opt.gmm, learning_type, opt.n_d)
         name = str(self.name) + '_' + opt.log_str + 'iter%d' % self.iter + '.txt'
         self._z = np.loadtxt(join(opt.data, 'segmentation', name))
         self._subact_count_update()

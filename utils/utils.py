@@ -3,7 +3,7 @@
 """Utilities for the project"""
 
 __all__ = ['join_data', 'AverageMeter', 'adjust_lr', 'timing', 'dir_check',
-           'parse', 'count_classes', 'AverageLength', 'merge']
+           'parse', 'count_classes', 'AverageLength', 'merge', 'update_opt_str']
 __author__ = 'Anna Kukleva'
 __date__ = 'August 2018'
 
@@ -12,7 +12,8 @@ import time
 from collections import defaultdict
 import os
 
-from utils.arg_pars import logger, opt
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 
 
 def join_data(data1, data2, f):
@@ -198,9 +199,9 @@ def merge(arr1, arr2):
 
 def update_opt_str():
     log_str = ''
-    logs_args = ['prefix', 'subaction', 'tr_type', 'pose_segm', 'full',
-                 'vae_dim', 'time_weight', 'epochs', 'embed_dim', 'n_d', 'ordering',
-                 'gmm', 'gmms', 'gt_training', 'lr', 'lr_adj', 'zeros']
+    logs_args = sorted(['prefix', 'subaction', 'dataset', 'full', 'epochs', 'embed_dim',
+                 'data_type', 'ordering', 'gmm', 'gmms', 'gt_training', 'lr', 'lr_adj',
+                 'zeros', 'bg', 'viterbi'])
     for arg in logs_args:
         attr = getattr(opt, arg)
         arg = arg.split('_')[0]
@@ -215,20 +216,24 @@ def update_opt_str():
             attr = '%s%s' % (arg, str(attr))
         log_str += '%s_' % attr
 
-    # additional attributes which appeared later
-    additional = ['bg', 'viterbi', 'label', 'concat']
-    for arg in additional:
-        attr = getattr(opt, arg)
-        if isinstance(attr, int):
-            attr = '%s%d' % (arg[0], attr)
-        else:
-            if attr:
-                attr = arg
-            else:
-                attr = ''
-        log_str += '%s_' % attr
+    # # additional attributes which appeared later
+    # additional = ['bg', 'viterbi']
+    # for arg in additional:
+    #     attr = getattr(opt, arg)
+    #     if isinstance(attr, int):
+    #         attr = '%s%d' % (arg[0], attr)
+    #     else:
+    #         if attr:
+    #             attr = arg
+    #         else:
+    #             attr = ''
+    #     log_str += '%s_' % attr
 
     opt.log_str = log_str
+
+    vars_iter = list(vars(opt))
+    for arg in sorted(vars_iter):
+        logger.debug('%s: %s' % (arg, getattr(opt, arg)))
 
 
 def join_return_stat(stat1, stat2):

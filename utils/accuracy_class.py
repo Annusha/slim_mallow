@@ -9,7 +9,8 @@ import numpy as np
 from collections import defaultdict, Counter
 from scipy.optimize import linear_sum_assignment
 
-from utils.arg_pars import logger, opt
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 
 
 class Accuracy(object):

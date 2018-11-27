@@ -4,7 +4,7 @@
 Two ways of training: with ground truth labels and with labels from current
 segmentation given the algorithm"""
 
-__all__ = ['load_data', 'load_mnist']
+__all__ = ['load_data']
 __author__ = 'Anna Kukleva'
 __date__ = 'August 2018'
 
@@ -17,7 +17,8 @@ import re
 import logging
 
 from utils.mapping import ground_truth
-from utils.arg_pars import opt, logger
+from utils.arg_pars import opt
+from utils.logging_setup import logger
 from utils.utils import join_data
 
 
@@ -72,7 +73,7 @@ class FeatureDataset(Dataset):
                 match = re.match(r'(\w*)\.\w*\s*(\d*)', line)
                 filename = match.group(1)
                 filepath = filename
-                if opt.n_d == 2:
+                if opt.data_type == 2:
                     filepath = self._subaction + '/' + filename
                 self._videoname2idx[filename] = fileindex
                 self._idx2videoname[fileindex] = filename
@@ -88,7 +89,7 @@ class FeatureDataset(Dataset):
                     gt_file = np.asarray(ground_truth[filename]).reshape((-1, 1))
                     features = np.loadtxt(join(self._root_dir, 'ascii',
                                                filepath + '.%s' % self._end))
-                    if opt.n_d == 2:
+                    if opt.data_type == 2:
                         features = features[:, 1:]
                     temp_feature_list = join_data(None,
                                                   (names, idxs, gt_file, features),
@@ -101,7 +102,7 @@ class FeatureDataset(Dataset):
                     gt_file = np.asarray(ground_truth[filename][:min_len]).reshape((-1, 1))
                     features = np.loadtxt(join(self._root_dir, 'ascii',
                                                filepath + '.%s' % self._end))[:min_len]
-                    if opt.n_d == 2:
+                    if opt.data_type == 2:
                         features = features[:, 1:]
                     temp_feature_list = join_data(None,
                                                   (names, idxs, gt_file, features),
@@ -239,7 +240,7 @@ def load_data(root_dir, end, subaction, videos=None, names=None, features=None,
     if names is not None:
         names[0] = dataset.index2name()
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size,
-                                             shuffle=(not opt.save_feat),
+                                             shuffle=(not opt.save_embed_feat),
                                              num_workers=opt.num_workers)
 
     return dataloader, dataset.n_subact()
