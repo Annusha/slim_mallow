@@ -78,7 +78,7 @@ class Video(object):
         """Load features given path if haven't do it before"""
         if self._features is None:
             self._features = np.loadtxt(self.path)
-            if opt.data_type == 2:
+            if opt.data_type == 2 and opt.dataset == 'bf':
                 self._features = self._features[1:, 1:]
             zeros = 0
             # for i in range(10):
@@ -98,7 +98,8 @@ class Video(object):
         try:
             assert len(self._gt) == self.n_frames
         except AssertionError:
-            print(self.path, '# of gt and # of frames does not match %d' % len(self._gt))
+            print(self.path, '# of gt and # of frames does not match %d / %d' %
+                  (len(self._gt), self.n_frames))
             if len(self._gt) - self.n_frames > 50:
                 raise AssertionError
             else:
@@ -310,26 +311,23 @@ class Video(object):
         self.z()
         subact_counter -= self.a
         for frame_idx in range(self.n_frames):
-            if self._with_bg:
-                pass
             # one hot encoding for current subaction class
             # sum instead of product as in log space
             likelihoods = self._likelihood_z_a(frame_idx)
-            if np.sum(likelihoods == -np.inf) == likelihoods.size:
-                self._z[frame_idx] = -1  # bg frame
-                self.fg_mask[frame_idx] = False
-            else:
-                self.fg_mask[frame_idx] = True
-                if self._z[frame_idx] == -1:
-                    subact_counter_video = self.a
-                else:
-                    subact_counter_video = self.a - self._subact_i_mask[self._z[frame_idx]]
-                multinomial_probs = (np.log(subact_counter + subact_counter_video
-                                            + self._theta_0))
-                # in this context just sampling
-                # it isn't assignment subact to the frame, but for the entire video
-                self._z[frame_idx] = np.argmax(likelihoods + multinomial_probs)
+            subact_counter_video = self.a - self._subact_i_mask[self._z[frame_idx]]
+            multinomial_probs = (np.log(subact_counter + subact_counter_video
+                                        + self._theta_0))
+            # in this context just sampling
+            # it isn't assignment subact to the frame, but for the entire video
+            self._z[frame_idx] = np.argmax(likelihoods + multinomial_probs)
+            self.fg_mask[frame_idx] = True
+
             self._subact_count_update()
+
+        if opt.bg:
+            self.fg_mask = np.sum(self._valid_likelihood, axis=1) > 0
+            self._z[self.fg_mask == False] = -1  # bg frames
+        self._subact_count_update()
         return self.a, subact_counter
 
     def ordering_sampler(self, mallow_model):
@@ -345,8 +343,8 @@ class Video(object):
 
             self._pi = mallow_model.ordering(self.inv_count_v)
         self.z()
-        if opt.bg:
-            self.fg_mask = np.sum(self._valid_likelihood, axis=1) > 0
+        # if opt.bg:
+        #     self.fg_mask = np.sum(self._valid_likelihood, axis=1) > 0
 
         # save current segmentation
         name = str(self.name) + '_' + opt.log_str + 'iter%d' % self.iter + '.txt'

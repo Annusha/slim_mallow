@@ -16,7 +16,7 @@ from os.path import join
 import re
 import logging
 
-from utils.mapping import ground_truth
+from utils.mapping import GroundTruth
 from utils.arg_pars import opt
 from utils.logging_setup import logger
 from utils.utils import join_data
@@ -47,6 +47,7 @@ class FeatureDataset(Dataset):
         self._features = features
         self._regression = regression
         self._vae = vae
+        self.gt_map = GroundTruth()
 
         if self._videos is None:
             self._with_gt()
@@ -82,11 +83,11 @@ class FeatureDataset(Dataset):
                 n_frames = int(match.group(2))
                 # because of there can be inconsistency between number of gt labels and
                 # corresponding number of frames for current representation
-                if len(ground_truth[filename]) == n_frames:
+                if len(self.gt_map.gt[filename]) == n_frames:
                     names = np.asarray([self._videoname2idx[filename]] * n_frames)\
                         .reshape((-1, 1))
                     idxs = np.asarray(list(range(0, n_frames))).reshape((-1, 1))
-                    gt_file = np.asarray(ground_truth[filename]).reshape((-1, 1))
+                    gt_file = np.asarray(self.gt_map.gt[filename]).reshape((-1, 1))
                     features = np.loadtxt(join(self._root_dir, 'ascii',
                                                filepath + '.%s' % self._end))
                     if opt.data_type == 2:
@@ -95,11 +96,11 @@ class FeatureDataset(Dataset):
                                                   (names, idxs, gt_file, features),
                                                   np.hstack)
                 else:
-                    min_len = np.min((len(ground_truth[filename]), n_frames))
+                    min_len = np.min((len(self.gt_map.gt[filename]), n_frames))
                     names = np.asarray([self._videoname2idx[filename]] * min_len)\
                         .reshape((-1, 1))
                     idxs = np.asarray(list(range(0, min_len))).reshape((-1, 1))
-                    gt_file = np.asarray(ground_truth[filename][:min_len]).reshape((-1, 1))
+                    gt_file = np.asarray(self.gt_map.gt[filename][:min_len]).reshape((-1, 1))
                     features = np.loadtxt(join(self._root_dir, 'ascii',
                                                filepath + '.%s' % self._end))[:min_len]
                     if opt.data_type == 2:

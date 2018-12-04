@@ -199,9 +199,10 @@ def merge(arr1, arr2):
 
 def update_opt_str():
     log_str = ''
-    logs_args = sorted(['prefix', 'subaction', 'dataset', 'full', 'epochs', 'embed_dim',
+    logs_args = sorted(['dataset', 'full', 'epochs', 'embed_dim',
                  'data_type', 'ordering', 'gmm', 'gmms', 'gt_training', 'lr', 'lr_adj',
                  'zeros', 'bg', 'viterbi'])
+    logs_args = ['prefix', 'subaction'] + logs_args
     for arg in logs_args:
         attr = getattr(opt, arg)
         arg = arg.split('_')[0]
@@ -215,19 +216,6 @@ def update_opt_str():
         else:
             attr = '%s%s' % (arg, str(attr))
         log_str += '%s_' % attr
-
-    # # additional attributes which appeared later
-    # additional = ['bg', 'viterbi']
-    # for arg in additional:
-    #     attr = getattr(opt, arg)
-    #     if isinstance(attr, int):
-    #         attr = '%s%d' % (arg[0], attr)
-    #     else:
-    #         if attr:
-    #             attr = arg
-    #         else:
-    #             attr = ''
-    #     log_str += '%s_' % attr
 
     opt.log_str = log_str
 

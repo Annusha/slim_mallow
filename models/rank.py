@@ -44,7 +44,7 @@ class Embedding(nn.Module):
 
 
 class RankLoss(nn.Module):
-    def __init__(self, margin=0.1):
+    def __init__(self, margin=0.3):
         super(RankLoss, self).__init__()
         self._margin = margin
 
@@ -55,7 +55,7 @@ class RankLoss(nn.Module):
         result = torch.max(zeros, result)
         result = torch.sum(result)
         result = result - self._margin * features.size()[0]
-        # result = result / features.size()[0]
+        result = result # / features.size()[0]
         return result
 
 

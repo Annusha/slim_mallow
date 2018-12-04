@@ -15,7 +15,7 @@ import os
 import re
 
 from utils.utils import dir_check
-from utils.arg_pars import logger, opt
+from utils.arg_pars import opt
 
 actions = ['coffee', 'changing_tire', 'cpr', 'jump_car', 'repot']
 gt_folder = '/media/data/kukleva/lab/YTInstructions/segmentation_gt_dt'

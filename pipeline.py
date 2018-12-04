@@ -7,21 +7,21 @@ Unsupervised learning and segmentation of complex activities from video.
 __author__ = 'Anna Kukleva'
 __date__ = 'August 2018'
 
+import BF_utils.update_argpars as bf_utils
+import YTI_utils.update_argpars as yti_utils
 from corpus import Corpus
-from utils.mapping import define_K
 from utils.arg_pars import opt
 from utils.logging_setup import logger
 from utils.utils import timing, update_opt_str, join_return_stat, parse_return_stat
-import BF_utils.update_argpars as bf_utils
 
 
 @timing
 def baseline():
     """Implementation of the paper"""
 
-    corpus = Corpus(Q=opt.gmm, K=define_K(opt.subaction), subaction=opt.subaction)
+    corpus = Corpus(Q=opt.gmm, subaction=opt.subaction)
 
-    for iteration in range(5):
+    for iteration in range(15):
         logger.debug('Iteration %d' % iteration)
         corpus.iter = iteration
         corpus.accuracy_corpus()
@@ -71,9 +71,7 @@ def all_actions():
 def resume_segmentation(iterations=10):
     logger.debug('Resume segmentation')
     corpus = Corpus(Q=opt.gmm,
-                    K=define_K(opt.subaction),
-                    subaction=opt.subaction,
-                    poses=True)
+                    subaction=opt.subaction)
 
     for iteration in range(iterations):
         logger.debug('Iteration %d' % iteration)
@@ -86,6 +84,8 @@ def resume_segmentation(iterations=10):
 if __name__ == '__main__':
     if opt.dataset == 'bf':
         bf_utils.update()
+    if opt.dataset == 'yti':
+        yti_utils.update()
     if opt.subaction == 'all':
         all_actions()
     else:

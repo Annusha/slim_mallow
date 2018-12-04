@@ -12,53 +12,42 @@ import torch
 import re
 import queue
 import multiprocessing as mp
-import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn.mixture import GaussianMixture
 import time
-from sklearn.cluster import KMeans
-from sklearn.cluster import MiniBatchKMeans
-from sklearn.decomposition import PCA
-from scipy.linalg import eigh
 
 from video import Video
 from mallow import Mallow
-from slice_sampling import slice_sample
+from slice_sampling import slice_sampling
 from models.rank import Embedding
 from models.dataset_torch import load_data
+from YTI_utils.dataset_torch import load_data as yti_load_data
 from models.training_embed import training, load_model
 from utils.arg_pars import opt
 from utils.logging_setup import logger
 from utils.accuracy_class import Accuracy
-from utils.mapping import ground_truth, gt_with_0
+from utils.mapping import GroundTruth
 from utils.utils import join_data, timing, dir_check
-from utils.visualization import Visual, plot_segm
 from utils.gmm_utils import AuxiliaryGMM, GMM_trh
 from utils.f1_score import F1Score
 
 
 class Corpus(object):
-    def __init__(self, Q, K=0, subaction='coffee'):
+    def __init__(self, Q, subaction='coffee'):
         """
         Args:
             Q: number of Gaussian components in each mixture
             K: number of possible subactions in current dataset
             subaction: current name of complex activity
         """
-        logger.debug('%s  subactions: %d' % (subaction, K))
+        self.gt_map = GroundTruth()
+        self.gt_map.load_mapping()
+        self._K = self.gt_map.define_K(subaction=subaction)
+        logger.debug('%s  subactions: %d' % (subaction, self._K))
         self.iter = -1
         self.return_stat = {}
 
-        ##################################
-        # for rho sampling testing
-        # self._K = K
-        # self._inv_count_stat = np.zeros(K)
-        # self._mallow = Mallow(K)
-        # self.rho_sampling()
-        ####################################
-
         self._acc_old = 0
-        self._K = K
         self._videos = []
         self._subaction = subaction
         # init with ones for consistency with first measurement of MoF
@@ -112,8 +101,8 @@ class Corpus(object):
                             path = os.path.join(root, filename)
                         start = 0 if self._features is None else self._features.shape[0]
                         video = Video(path, K=self._K,
-                                      gt=ground_truth[gt_name],
-                                      gt_with_0=gt_with_0[gt_name],
+                                      gt=self.gt_map.gt[gt_name],
+                                      gt_with_0=self.gt_map.gt_with_0[gt_name],
                                       name=gt_name,
                                       start=start,
                                       with_bg=self._with_bg)
@@ -124,9 +113,9 @@ class Corpus(object):
                         video.reset()  # to not store second time loaded features
                         self._videos.append(video)
                         # accumulate statistic for inverse counts vector for each video
-                        gt_stat.update(ground_truth[gt_name])
+                        gt_stat.update(self.gt_map.gt[gt_name])
                         if not opt.full:
-                            if len(self._videos) > 30:
+                            if len(self._videos) > 10:
                                 break
 
         # update global range within the current collection for each video
@@ -183,7 +172,7 @@ class Corpus(object):
                                   covariance_type='full',
                                   max_iter=150,
                                   random_state=opt.seed,
-                                  reg_covar=1e-2)
+                                  reg_covar=1e-6)
             total_indexes = np.zeros(len(self._features), dtype=np.bool)
             for idx, video in enumerate(self._videos):
                 if idx == idx_exclude:
@@ -341,13 +330,18 @@ class Corpus(object):
 
     def rho_sampling(self):
         """Sampling of parameters for Mallow Model using slice sampling"""
-        self._mallow.rho = []
+        logger.debug('rho sampling')
+        # self._mallow.rho = []
+        mallow_rho = []
+        inv_pdf = lambda x: -1. / self._mallow.logpdf(x)
         for k in range(self._K - 1):
+            # logger.debug('rho sampling k: %d' % k)
             self._mallow.set_sample_params(sum_inv_vals=self._inv_count_stat[k],
                                            k=k, N=len(self._videos))
-            sample = slice_sample(init=1, burn_in=100,
-                                  logpdf=self._mallow.logpdf)
-            self._mallow.rho.append(sample)
+            sample = slice_sampling(burnin=10, x_init=self._mallow.rho[k],
+                                    logpdf=inv_pdf)
+            mallow_rho.append(sample)
+        self._mallow.rho = mallow_rho
         logger.debug(str(['%.4f' % i for i in self._mallow.rho]))
 
     def embedding_training(self):
@@ -360,25 +354,29 @@ class Corpus(object):
         logger.debug('.')
         if opt.save_embed_feat:
             return
+        K_train = self._K
+        if opt.bg:
+            K_train = self._K + 1
         if opt.resume:
             self._embedding = Embedding(embed_dim=opt.embed_dim,
                                         feature_dim=opt.feature_dim,
-                                        n_subact=self._K)
+                                        n_subact=K_train)
             self._embedding.load_state_dict(load_model(epoch=opt.resume * (opt.epochs - 1),
                                                        name='rank'))
         else:
-            if opt.gt_training and opt.full:
-                # training with gt labels
-                dataloader, _ = load_data(opt.data, opt.end,
-                                          subaction=self._subaction)
-            else:
-                # training with labels estimated by the algorithm
+            if opt.dataset == 'yti':
+                dataloader, _ = yti_load_data(opt.data, opt.ext,
+                                              subaction=self._subaction,
+                                              videos=self._videos,
+                                              features=self._features)
+            if opt.dataset == 'bf':
                 dataloader, _ = load_data(opt.data, opt.ext,
                                           subaction=self._subaction,
                                           videos=self._videos,
                                           features=self._features)
+
             self._embedding = training(dataloader, opt.epochs,
-                                       n_subact=self._K,
+                                       n_subact=K_train,
                                        name='rank',
                                        save=opt.save_model)
             self._embedding = self._embedding.cpu()

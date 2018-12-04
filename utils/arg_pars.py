@@ -19,11 +19,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--log', default='DEBUG',
                     help='DEBUG | INFO | WARNING | ERROR | CRITICAL')
 
-parser.add_argument('--subaction', default='coffee',
+parser.add_argument('--subaction', default='coffee',  # ['changing_tire', 'coffee', 'jump_car', 'cpr', 'repot']
                     help='measure accuracy for different subactivities')
 
 parser.add_argument('--dataset', default='bf',
                     help='Breakfast dataset (bf) or YouTube Instructional (yti)')
+
 parser.add_argument('--dataset_root', default='/media/data/kukleva/lab/Breakfast',
                     help='root folder for dataset:'
                          'Breakfast / YTInstructions')
@@ -49,9 +50,9 @@ parser.add_argument('--save_likelihood', default=False, type=bool)
 
 parser.add_argument('--seed', default=0,
                     help='seed for random algorithms, everywhere')
-parser.add_argument('--lr', default=1e-6, type=float,
+parser.add_argument('--lr', default=1e-7, type=float,
                     help='initial learning rate')
-parser.add_argument('--lr_adj', default=True, type=bool,
+parser.add_argument('--lr_adj', default=False, type=bool,
                     help='will lr be multiplied by 0.1 in the middle')
 parser.add_argument('--momentum', default=0.9,
                     help='momentum')
@@ -61,9 +62,9 @@ parser.add_argument('--batch_size', default=256,
                     help='batch size for training embedding (default: 40)')
 parser.add_argument('--num_workers', default=4,
                     help='number of threads for dataloading')
-parser.add_argument('--embed_dim', default=40, type=int,
+parser.add_argument('--embed_dim', default=30, type=int,
                     help='number of dimensions in embedded space')
-parser.add_argument('--epochs', default=12, type=int,
+parser.add_argument('--epochs', default=15, type=int,
                     help='number of epochs for training embedding')
 parser.add_argument('--resume', default=False, type=bool,
                     help='load model for embeddings, if positive then it is number of '
@@ -95,7 +96,7 @@ parser.add_argument('--data_type', default=2, type=int,
 # bg
 
 bg_p = 0
-parser.add_argument('--bg_trh', default=93, type=int)
+parser.add_argument('--bg_trh', default=85, type=int)
 
 ###########################################
 # viterbi
@@ -107,11 +108,11 @@ parser.add_argument('--viterbi', default=False, type=bool)
 
 parser.add_argument('--full', default=True, type=bool,
                     help='check smth using only 15 videos')
-parser.add_argument('--save_model', default=True, type=bool,
+parser.add_argument('--save_model', default=False, type=bool,
                     help='save embedding model after training')
 parser.add_argument('--vis', default=False, type=bool,
                     help='save visualisation of embeddings')
-parser.add_argument('--prefix', default='rank.',
+parser.add_argument('--prefix', default='20iter.',
                     help='prefix for log file')
 
 ###########################################
@@ -119,8 +120,6 @@ parser.add_argument('--prefix', default='rank.',
 parser.add_argument('--log_str', default='',
                     help='unify all savings')
 opt = parser.parse_args()
-
-opt.gt = join(opt.dataset_root, opt.data, opt.gt)
 
 
 

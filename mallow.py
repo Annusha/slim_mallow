@@ -20,7 +20,7 @@ class Mallow(object):
         # number of subactions
         self._K = K
         self.k = 0
-        self.rho = []
+        self.rho = [1e-8] * (K - 1)
         self.rho_0 = rho_0
         self._nu_0 = nu_0
         self._dispersion = np.zeros((self._K, 1))
@@ -46,7 +46,7 @@ class Mallow(object):
         """
         self._k = k
         self._nu_sample = self._nu_0 + N
-        self._v_j_sample = (sum_inv_vals + self._v_j_0[k] * self._nu_0) / (self._nu_0 + N)
+        self._v_j_sample = (sum_inv_vals + self._v_j_0[k] * self._nu_0)  # / (self._nu_0 + N)
 
     def logpdf(self, ro_j):
         norm_factor = np.log(self._normalization_factor(self.k, ro_j))
@@ -54,8 +54,8 @@ class Mallow(object):
         return np.array(result)
 
     def _normalization_factor(self, k, rho_k):
-        power = -(self._K - k + 1) * rho_k
-        numerator = 1. - np.exp(power)
+        power = (self._K - k + 1) * rho_k
+        numerator = 1. - np.exp(-power)
         denominator = 1. - np.exp(-rho_k)
         return numerator / denominator
 
