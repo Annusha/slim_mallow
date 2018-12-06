@@ -194,7 +194,6 @@ class Video(object):
         # change one label of current subactivity to one of the possible ones
         var_z[:, frame_idx] = np.arange(self._K)
         # rearrange
-        temp = var_z[:, self.fg_mask]
         var_z[:, self.fg_mask] = np.sort(var_z[:, self.fg_mask], axis=1)
         likelihood = self._helper_likelihood_z(var_z)
         reodered_lk = np.zeros(self._K)

@@ -21,7 +21,7 @@ def baseline():
 
     corpus = Corpus(Q=opt.gmm, subaction=opt.subaction)
 
-    for iteration in range(15):
+    for iteration in range(7):
         logger.debug('Iteration %d' % iteration)
         corpus.iter = iteration
         corpus.accuracy_corpus()
@@ -39,11 +39,25 @@ def baseline():
         else:
             raise RuntimeError('define number of gmms for the video collection')
 
-        corpus.subactivity_sampler()
+        if opt.viterbi:
+            # corpus.viterbi_decoding()
+            # corpus.accuracy_corpus(prefix='pure vit ')
 
-        # take into account Mallow Model
-        corpus.ordering_sampler()
-        corpus.rho_sampling()
+            # corpus.viterbi_ordering()
+            # take into account Mallow Model
+            corpus.ordering_sampler()
+            corpus.rho_sampling()
+            # corpus.accuracy_corpus(prefix='vit+ord ')
+
+            corpus.viterbi_decoding()
+            # corpus.viterbi_alex_decoding()
+        else:
+            corpus.subactivity_sampler()
+
+            # take into account Mallow Model
+            corpus.ordering_sampler()
+            corpus.rho_sampling()
+
     corpus.accuracy_corpus()
 
 

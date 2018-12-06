@@ -201,7 +201,7 @@ def update_opt_str():
     log_str = ''
     logs_args = sorted(['dataset', 'full', 'epochs', 'embed_dim',
                  'data_type', 'ordering', 'gmm', 'gmms', 'gt_training', 'lr', 'lr_adj',
-                 'zeros', 'bg', 'viterbi'])
+                 'zeros', 'bg', 'viterbi', 'reg_cov'])
     logs_args = ['prefix', 'subaction'] + logs_args
     for arg in logs_args:
         attr = getattr(opt, arg)

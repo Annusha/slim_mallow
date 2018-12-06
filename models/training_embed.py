@@ -35,6 +35,7 @@ def training(train_loader, epochs, n_subact=0, save=True, **kwargs):
     """
     logger.debug('create model')
     torch.manual_seed(opt.seed)
+    np.random.seed(opt.seed)
     try:
         model = kwargs['model']
         loss = kwargs['loss']

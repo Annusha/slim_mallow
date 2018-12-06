@@ -40,6 +40,7 @@ class Corpus(object):
             K: number of possible subactions in current dataset
             subaction: current name of complex activity
         """
+        np.random.seed(opt.seed)
         self.gt_map = GroundTruth()
         self.gt_map.load_mapping()
         self._K = self.gt_map.define_K(subaction=subaction)
@@ -115,7 +116,7 @@ class Corpus(object):
                         # accumulate statistic for inverse counts vector for each video
                         gt_stat.update(self.gt_map.gt[gt_name])
                         if not opt.full:
-                            if len(self._videos) > 10:
+                            if len(self._videos) > 20:
                                 break
 
         # update global range within the current collection for each video
@@ -172,7 +173,7 @@ class Corpus(object):
                                   covariance_type='full',
                                   max_iter=150,
                                   random_state=opt.seed,
-                                  reg_covar=1e-6)
+                                  reg_covar=opt.reg_cov)
             total_indexes = np.zeros(len(self._features), dtype=np.bool)
             for idx, video in enumerate(self._videos):
                 if idx == idx_exclude:
