@@ -21,12 +21,13 @@ parser.add_argument('--subaction', default='all',  # ['changing_tire', 'coffee',
                     help='measure accuracy for different subactivities')
 parser.add_argument('--dataset', default='bf',
                     help='Breakfast dataset (bf) or YouTube Instructional (yti)')
-parser.add_argument('--data_type', default=2, type=int,
+parser.add_argument('--data_type', default=4, type=int,
                     help='for this moment valid just for Breakfast dataset'
                          '0: kinetics - features from the stream network'
                          '1: data - normalized features'
                          '2: s1 - features without normalization'
-                         '3: videos')
+                         '3: videos'
+                         '4: new features, not specified earlier')
 
 
 parser.add_argument('--dataset_root', default='/media/data/kukleva/lab/Breakfast',
@@ -73,7 +74,8 @@ parser.add_argument('--gmm', default=1, type=int,
                     help='number of components for gaussians')
 parser.add_argument('--gmms', default='one',
                     help='number of gmm for the video collection: many/one')
-parser.add_argument('--reg_cov', default=1e-1, type=float)
+parser.add_argument('--reg_cov', default=1e-1, type=float,
+                    help='gaussian mixture model parameter')
 parser.add_argument('--ordering', default=True,
                     help='apply Mallow model to incorporate ordering')
 

@@ -16,14 +16,13 @@ from utils.logging_setup import path_logger
 def update():
     opt.dataset_root = '/media/data/kukleva/lab/Breakfast'
 
-
-    data_subfolder = ['kinetics', 'data', 's1', 'video'][opt.data_type]
-    opt.data = os.path.join(opt.dataset_root, 'feat', data_subfolder)
+    data_subfolder = ['feat/kinetics', 'feat/data', 'feat/s1', 'feat/video', opt.data][opt.data_type]
+    opt.data = os.path.join(opt.dataset_root, data_subfolder)
 
     opt.gt = os.path.join(opt.data, opt.gt)
 
-    opt.ext = ['gz', 'gz', 'txt', 'avi'][opt.data_type]
-    opt.feature_dim = [400, 64, 64, 0][opt.data_type]
+    opt.ext = ['gz', 'gz', 'txt', 'avi', opt.ext][opt.data_type]
+    opt.feature_dim = [400, 64, 64, 0, opt.feature_dim][opt.data_type]
 
     opt.bg = False
     opt.zeros = False

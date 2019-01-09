@@ -116,7 +116,7 @@ class Corpus(object):
                         # accumulate statistic for inverse counts vector for each video
                         gt_stat.update(self.gt_map.gt[gt_name])
                         if not opt.full:
-                            if len(self._videos) > 20:
+                            if len(self._videos) > 10:
                                 break
 
         # update global range within the current collection for each video
