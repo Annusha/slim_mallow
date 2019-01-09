@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 
 ###########################################
 # data
-parser.add_argument('--subaction', default='tea',  # ['changing_tire', 'coffee', 'jump_car', 'cpr', 'repot']
+parser.add_argument('--subaction', default='all',  # ['changing_tire', 'coffee', 'jump_car', 'cpr', 'repot']
                     help='measure accuracy for different subactivities')
 parser.add_argument('--dataset', default='bf',
                     help='Breakfast dataset (bf) or YouTube Instructional (yti)')
@@ -114,7 +114,7 @@ parser.add_argument('--zeros', default=False, type=bool,
                          'labeling at all (SIL label), only for Breakfast dataset')
 parser.add_argument('--vis', default=False, type=bool,
                     help='save visualisation of embeddings')
-parser.add_argument('--prefix', default='reg.cov.01.',
+parser.add_argument('--prefix', default='slim.mallow.',
                     help='prefix for log file')
 
 ###########################################

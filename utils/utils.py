@@ -229,31 +229,36 @@ def join_return_stat(stat1, stat2):
     stat = {}
     if stat1 is None:
         return stat2
-    for key in keys:
-        v11, v21 = stat1[key]
-        v12, v22 = stat2[key]
-        stat[key] = [v11 + v12, v21 + v22]
+    try:
+        for key in keys:
+            v11, v21 = stat1[key]
+            v12, v22 = stat2[key]
+            stat[key] = [v11 + v12, v21 + v22]
+    except KeyError:
+        pass
     return stat
 
 
 def parse_return_stat(stat):
     keys = ['mof', 'mof_bg', 'iou', 'iou_bg', 'f1', 'mean_f1']
-    for key in keys:
-        if key == 'f1':
-            _eps = 1e-8
-            n_tr_seg, n_seg = stat['precision']
-            precision = n_tr_seg / n_seg
-            _, n_tr_seg = stat['recall']
-            recall = n_tr_seg / n_tr_seg
-            val = 2 * (precision * recall) / (precision + recall + _eps)
-        else:
-            v1, v2 = stat[key]
-            if key == 'iou_bg':
-                v2 += 1  # bg class
-            val = v1 / v2
+    try:
+        for key in keys:
+            if key == 'f1':
+                _eps = 1e-8
+                n_tr_seg, n_seg = stat['precision']
+                precision = n_tr_seg / n_seg
+                _, n_tr_seg = stat['recall']
+                recall = n_tr_seg / n_tr_seg
+                val = 2 * (precision * recall) / (precision + recall + _eps)
+            else:
+                v1, v2 = stat[key]
+                if key == 'iou_bg':
+                    v2 += 1  # bg class
+                val = v1 / v2
 
-        logger.debug('%s: %f' % (key, val))
-
+            logger.debug('%s: %f' % (key, val))
+    except KeyError or TypeError:
+        pass
 
 if __name__ == '__main__':
     a = [1, 5, 10, 12, 15]

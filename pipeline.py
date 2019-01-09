@@ -16,12 +16,12 @@ from utils.utils import timing, update_opt_str, join_return_stat, parse_return_s
 
 
 @timing
-def baseline():
+def baseline(iterations=7):
     """Implementation of the paper"""
 
     corpus = Corpus(Q=opt.gmm, subaction=opt.subaction)
 
-    for iteration in range(7):
+    for iteration in range(iterations):
         logger.debug('Iteration %d' % iteration)
         corpus.iter = iteration
         corpus.accuracy_corpus()
@@ -58,6 +58,7 @@ def baseline():
             corpus.ordering_sampler()
             corpus.rho_sampling()
 
+    logger.debug('Iteration %d' % iteration)
     corpus.accuracy_corpus()
 
 
@@ -77,7 +78,7 @@ def all_actions():
         if opt.viterbi:
             return_stat_single = baseline(iterations=1)
         else:
-            return_stat_single = baseline(iterations=5)
+            return_stat_single = baseline(iterations=7)
         return_stat_all = join_return_stat(return_stat_all, return_stat_single)
     parse_return_stat(return_stat_all)
 

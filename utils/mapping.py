@@ -65,8 +65,8 @@ class GroundTruth:
 
     @timing
     def load_gt(self):
-        self.gt = self.load_obj('gt_with_0')
-        self.order = self.load_obj('order_with_0')
+        self.gt = self.load_obj('gt')
+        self.order = self.load_obj('order')
 
         if self.gt is None or self.order is None:
             self.gt, self.order = {}, {}
@@ -97,8 +97,8 @@ class GroundTruth:
 
                         local_order.append([curr_lab, start, end])
                         self.order[filename] = local_order
-            self.save_obj(self.gt, 'gt_with_0')
-            self.save_obj(self.order, 'order_with_0')
+            self.save_obj(self.gt, 'gt')
+            self.save_obj(self.order, 'order')
         self.gt_with_0 = self.gt
         # print(list(gt_with_0.keys()))
         self.order_with_0 = self.order
@@ -107,8 +107,8 @@ class GroundTruth:
         self.gt_with_0 = copy.deepcopy(self.gt)
         self.order_with_0 = copy.deepcopy(self.order)
 
-        gt_temp = self.load_obj('gt')
-        order_temp = self.load_obj('order')
+        gt_temp = self.load_obj('gt_wo_zeros')
+        order_temp = self.load_obj('order_wo_zeros')
 
         if gt_temp is None:
             for key, value in self.gt.items():
@@ -125,7 +125,7 @@ class GroundTruth:
                             break
                 assert 0 not in value
                 self.gt[key] = value
-            self.save_obj(self.gt, 'gt')
+            self.save_obj(self.gt, 'gt_wo_zeros')
         else:
             self.gt = gt_temp
 
@@ -137,7 +137,7 @@ class GroundTruth:
                 label, start, end = fileorder[-1]
                 if label == 0:
                     fileorder[-1] = [fileorder[-2][0], start, end]
-            self.save_obj(self.order, 'order')
+            self.save_obj(self.order, 'order_wo_zeros')
         else:
             self.order = order_temp
 
