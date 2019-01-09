@@ -1,6 +1,6 @@
 # Unsupervised Learning and Segmentation of Complex Activities from Video
 
-Python implementation of the paper Unsupervised Learning and Segmentation of Complex Activities from Video.
+Python implementation of the paper Unsupervised Learning and Segmentation of Complex Activities from Video. [a link](https://arxiv.org/pdf/1803.09490.pdf)
 
 ## Results and changes:
 Full log for the Breakfast dataset result is here.  [a link](https://github.com/Annusha/slim_mallow/blob/master/results/log)  
